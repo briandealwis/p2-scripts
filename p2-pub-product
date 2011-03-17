@@ -1,0 +1,75 @@
+#!/bin/sh
+#
+# Copyright 2011 Brian de Alwis
+# Licensed under the Eclipse Public License v1.0
+# http://www.eclipse.org/org/documents/epl-v10.php
+#
+P2HOME=${P2HOME:?P2HOME is not set}
+ECLIPSEHOME=${ECLIPSEHOME:?ECLIPSEHOME is not set}
+. $P2HOME/tools.sh || exit -1
+
+flavour="tooling"
+execLoc=""
+
+usage()
+{
+    eval 1>&2
+    echo "Invoke the p2 Product Publisher."
+    echo
+    echo "use: $progname [-v] [-f flavour] [-x exec-loc] \\"
+    echo "                     repo-location productFile configs ..."
+    echo "  -f  the flavour (default: tooling)"
+    echo "  -x  the location of the executables (default: found from ECLIPSEHOME)"
+    echo
+    echo "configs should be a sequence of ws.os.arch triples"
+    exit 1
+}
+
+while getopts vf:x: c; do
+    case $c in
+    v)  verbose=true;;
+    f)	flavour=$OPTARG;;
+    x)	execLoc=$OPTARG;;
+    \?)	usage;;
+    esac
+done
+shift `expr $OPTIND - 1`
+
+if [ $# -lt 3 ]; then
+    usage
+fi
+
+destLoc=$(checkOrCreateLocalP2Repo "$1")
+productFile=$(absolute "$2")
+shift 2
+
+# This is a hack: maybe we should assume the executable is in the repo,
+# and instead extract it to a temp directory to be passed in?
+if [ -z "$execLoc" ]; then
+    for subdir in . deltapack; do
+	dir="$ECLIPSEHOME/$subdir/features/"
+	if [ ! -d "$dir" ]; then continue; fi
+	candidate=$(ls -1d "$dir"/org.eclipse.equinox.executable_* 2>/dev/null \
+	      | sort -n | sed -n '$p')
+	if [ -d "$candidate" -a -f "$candidate/feature.xml" ]; then
+	    execLoc="$candidate"
+	    break
+	fi
+    done
+fi
+if [ -z "$execLoc" ]; then
+    error "unable to find platform executable feature (org.eclipse.equinox.executable)"
+elif [ ! -d "$execLoc" -o ! -f "$execLoc/feature.xml" ]; then
+    error "$execLoc: invalid feature"
+fi
+execLoc=$(absolute "$execLoc")
+
+runEclipse -application org.eclipse.equinox.p2.publisher.ProductPublisher \
+    -metadataRepository "$destLoc" \
+    -artifactRepository "$destLoc" \
+    -productFile "$productFile" \
+    -append -publishArtifacts \
+    -executables "$execLoc" \
+    -flavor "$flavour" \
+    -configs $(echo $* | sed 's/  */,/g')
+

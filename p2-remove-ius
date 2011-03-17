@@ -1,0 +1,94 @@
+#!/bin/sh
+#
+# Copyright 2011 Brian de Alwis
+# Licensed under the Eclipse Public License v1.0
+# http://www.eclipse.org/org/documents/epl-v10.php
+#
+P2HOME=${P2HOME:?P2HOME is not set}
+ECLIPSEHOME=${ECLIPSEHOME:?ECLIPSEHOME is not set}
+. $P2HOME/tools.sh || exit -1
+
+verbatim=false
+
+usage()
+{
+    eval 1>&2
+    echo "Invoke the p2 p2.remove.iu ant task to remove a set of IUs."
+    echo "use: $progname [-vV] repo ius ..."
+    echo
+    echo "  -v  be more verbose"
+    echo "  -V  specify IUs verbatim"
+    echo
+    echo "  repo	the p2 artifact and metadata repo"
+    echo "  ius		a list of the IUs to remove."
+    echo
+    echo "Each IU should be of the form \"<id>['/'<version>]\"."
+    echo "If you are looking to remove a feature, the id of the feature"
+    echo "must be suffixed with \".feature.group\"."
+    echo
+    echo "To remove a feature, you must remove two IUs: '<featureId>.feature.group'"
+    echo "and '<featureId>.feature.jar'."
+    exit 1
+}
+
+while getopts vV c; do
+    case $c in
+    v)  verbose=true;;
+    V)	verbatim=true;;
+    \?)	usage;;
+    esac
+done
+shift `expr $OPTIND - 1`
+
+if [ $# -lt 2 ]; then
+    usage
+fi
+
+repoLoc=$(rewriteRepoLoc "$1") || exit
+shift 1
+
+buildfile=`mktemp -t p2.XXXXXXX`
+trap "rm -f $buildfile" 0 1 2 3 15
+
+cat >>$buildfile <<EOF
+<project default="remove-ius">
+  <target name="remove-ius">
+    <p2.remove.iu>
+      <repository location="$repoLoc" />
+EOF
+
+for iu in "$@"; do
+    if [ "$verbatim" = true ]; then
+	echo "      <iu id=\"$iu\" />" >>$buildfile
+    elif [ -e "$iu" ]; then
+	echo "      <iu id=\"$(osgi-bundle-name "$iu")\"" >>$buildfile
+	echo "         version=\"$(osgi-bundle-version "$iu")\" />" >>$buildfile
+    else
+	case "$iu" in
+	*_[0-9]*)
+	  echo "      <iu id=\"$(echo $iu | cut -f1 -d_)\"" >>$buildfile
+	  echo "         version=\"$(echo $iu | cut -f2 -d_)\" />" >>$buildfile
+	  ;;
+	*/[0-9]*)
+	  echo "      <iu id=\"$(echo $iu | cut -f1 -d/)\"" >>$buildfile
+	  echo "         version=\"$(echo $iu | cut -f2 -d/)\" />" >>$buildfile
+	  ;;
+	*)
+	  echo "      <iu id=\"$iu\" />" >>$buildfile
+	  ;;
+	esac
+    fi
+done
+
+cat >>$buildfile <<EOF
+    </p2.remove.iu>
+  </target>
+</project>
+EOF
+
+if [ "$verbose" = true ]; then
+    cat $buildfile
+fi
+
+runEclipse -application org.eclipse.ant.core.antRunner \
+    -buildfile $buildfile

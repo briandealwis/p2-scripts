@@ -1,0 +1,101 @@
+#!/bin/sh
+#
+# Copyright 2011 Brian de Alwis
+# Licensed under the Eclipse Public License v1.0
+# http://www.eclipse.org/org/documents/epl-v10.php
+#
+P2HOME=${P2HOME:?P2HOME is not set}
+ECLIPSEHOME=${ECLIPSEHOME:?ECLIPSEHOME is not set}
+. $P2HOME/tools.sh || exit -1
+
+usage()
+{
+    eval 1>&2
+    echo "Invoke the p2 director to install an arbitrary IU."
+    echo
+    echo "use: $progname [-vPVr] [-b bpool] [-c os-ws-arch] \\"
+    echo "       [-C configDir] [-d p2-data-area] repo-loc dest profile iu ..."
+    echo
+    echo "  -v  be more verbose"
+    echo "  -r  replace the specified IUs (i.e., uninstall and install)"
+    echo "  -b  use bundle-pool in bpool"
+    echo "  -c  specify os-ws-arch configuration for provisioning"
+    echo "  -P  install a product (sets org.eclipse.update.install.features=true)"
+    echo "  -V  verify only, don't actually perform the install"
+    echo "  -C  set the configuration area to the specified directory (under dest)"
+    echo "  -d  set the p2 data area to the specified directory (under dest)"
+    echo
+    echo "  repo-loc	the location of th p2 artifact and metadata repo"
+    echo "  dest	the installation destination"
+    echo "  profile	the profile at the destination for recording"
+    echo "  iu		a list of the IUs to install."
+    echo
+    echo "Each IU should be of the form \"<id>['/'<version>]\"."
+    echo "If you are looking to install a feature, the id of the feature"
+    echo "must be suffixed with \".feature.group\"."
+    exit 1
+}
+
+while getopts vrb:c:PVd: c; do
+    case $c in
+    v)  verbose=true;;
+    b)	bpool=$OPTARG;;
+    c)  config=$OPTARG;;
+    r)  replace=true;;
+    P)	profileProps="org.eclipse.update.install.features=true";;
+    V)	verifyOnly="-verifyOnly";;
+    d)	p2DataArea=$OPTARG;;
+    \?)	usage;;
+    esac
+done
+shift `expr $OPTIND - 1`
+
+if [ $# -lt 4 ]; then
+    usage
+fi
+
+repoLoc=$(rewriteRepoLoc "$1")
+destination="$2"
+profile="$3"
+p2ProfileReg="p2/org.eclipse.equinox.p2.engine/profileRegistry"
+profileDir="${destination}/${p2DataArea}/${p2ProfileReg}/${profile}.profile"
+shift 3
+
+if [ -d "$destination" ]; then
+    :
+    #if [ ! -d "$destination/$p2ProfileReg" ]; then
+    #	error "$destination/$p2ProfileReg: cannot find p2 profile registry"
+    #elif [ ! -d "$profileDir" ]; then
+    #	error "$profile: profile does not seem to exist"
+    #fi
+fi
+if [ -n "$config" -a \
+	`expr "$config" : "^[^-][^-]*-[^-][^-]*-[^-][^-]*$"` -eq 0 ]; then
+    error "${config}: invalid os-ws-arch combination"
+fi
+
+if [ -n "$bpool" -a "$bpool" = "$destination" ]; then
+    # p2 docs: "-roaming indicates that the product resulting from the
+    # installation can be moved. This property only makes sense when the
+    # destination and bundle pool are in the same location. This value
+    # is only taken into account when the profile is created."
+    roaming="-roaming"
+fi
+
+specifiedIUs=$(echo $* | sed 's/[[:space:]][[:space:]]*/,/g')
+runEclipse -application org.eclipse.equinox.p2.director \
+    -repository "$repoLoc" \
+    ${profileProps:+-profileProperties "$profileProps"} \
+    ${roaming} \
+    ${verifyOnly} \
+    ${bpool:+-bundlepool "$bpool"} \
+    -destination "$destination" \
+    ${config:+-p2.os "$(echo $config | cut -f1 -d-)"} \
+    ${config:+-p2.ws "$(echo $config | cut -f2 -d-)"} \
+    ${config:+-p2.arch "$(echo $config | cut -f3 -d-)"} \
+    ${configurationDir:+-configuration "$destination/$configurationDir"} \
+    -profile "$profile" \
+    ${replace:+-uninstallIU "$specifiedIUs"} \
+    -installIU "$specifiedIUs" \
+    -vmargs \
+    ${p2DataArea:+-Declipse.p2.data.area="$destination/${p2DataArea}"}

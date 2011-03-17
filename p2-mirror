@@ -1,0 +1,120 @@
+#!/bin/sh
+#
+# Copyright 2011 Brian de Alwis
+# Licensed under the Eclipse Public License v1.0
+# http://www.eclipse.org/org/documents/epl-v10.php
+#
+P2HOME=${P2HOME:?P2HOME is not set}
+ECLIPSEHOME=${ECLIPSEHOME:?ECLIPSEHOME is not set}
+. $P2HOME/tools.sh || exit -1
+
+optional=false
+nongreedy=true
+followStrict=false
+followOnlyFiltered=false
+
+usage()
+{
+    eval 1>&2
+    echo "Invoke the p2 mirror ant task to mirror a set of repos."
+    echo
+    echo "use: $progname [-vgFOSM] [-c os-ws-arch] \\"
+    echo "         dest-repo source-repos ... [-- ius ...]"
+    echo
+    echo "  -v  be more verbose"
+    echo "  -c  apply a platform configuration filter"
+    echo "  -g  be greedy"
+    echo "  -F  follow only filtered requirements"
+    echo "  -M  disable p2 mirror checking"
+    echo "  -O  include optional components"
+    echo "  -S  be strict when following requirements"
+    echo
+    echo "  source-repo	the source p2 artifact and metadata repo"
+    echo "  dest-repo	the destination p2 artifact and metadata repo"
+    echo "  ius		a list of the IUs to mirror."
+    echo
+    echo "Each IU should be of the form \"<id>['/'<version>]\"."
+    echo "If you are looking to install a feature, the id of the feature"
+    echo "must be suffixed with \".feature.group\"."
+    exit 1
+}
+
+while getopts vc:gFOSM c; do
+    case $c in
+    v)  verbose="true";;
+    c)	platformFilter="$OPTARG";;
+    g)	nongreedy=false;;
+    F)	followOnlyFiltered=true;;
+    M)	disableMirrors=true;;
+    O)	optional=true;;
+    S)	followStrict=true;;
+    \?)	usage;;
+    esac
+done
+shift `expr $OPTIND - 1`
+
+if [ $# -lt 2 ]; then
+    usage
+fi
+
+destLoc=$(checkOrCreateLocalP2Repo "$1")
+shift 1
+
+buildfile=`mktemp -t p2.XXXXXXX`
+trap "rm -f $buildfile" 0 1 2 3 15
+
+cat >>$buildfile <<EOF
+<project default="mirror">
+  <target name="mirror">
+    <p2.mirror>
+      <repository location="$destLoc" append="true"/>
+      <source>
+EOF
+
+while [ $# -gt 0 -a "$1" != -- ]; do
+    repoLoc=$(rewriteRepoLoc "$1")
+    echo "        <repository location=\"$repoLoc\" />" >>$buildfile
+    shift
+done
+echo "      </source>" >>$buildfile
+
+if [ $# -gt 0 -a "$1" = -- ]; then
+    shift
+    while [ $# -gt 0 -a "$1" != -- ]; do
+	case "$1" in
+	*_[0-9]*)
+	  echo "      <iu id=\"$(echo $1 | cut -f1 -d_)\"" >>$buildfile
+	  echo "         version=\"$(echo $1 | cut -f2 -d_)\" />" >>$buildfile
+	  ;;
+	*/[0-9]*)
+	  echo "      <iu id=\"$(echo $1 | cut -f1 -d/)\"" >>$buildfile
+	  echo "         version=\"$(echo $1 | cut -f2 -d/)\" />" >>$buildfile
+	  ;;
+	*)
+	  echo "      <iu id=\"$1\" />" >>$buildfile
+	  ;;
+	esac
+	shift
+    done
+fi
+
+cat >>$buildfile <<EOF
+      <slicingoptions includeFeatures="true"
+        followOnlyFilteredRequirements="$followOnlyFiltered"
+        followStrict="$followStrict"
+        ${platformFilter:+platformfilter='$(echo $platformFilter | tr '-' ',')'}
+        includeOptional="$optional"
+        includeNonGreedy="$nongreedy" />
+    </p2.mirror>
+  </target>
+</project>
+EOF
+
+if [ "$verbose" = true ]; then
+    cat $buildfile
+fi
+
+runEclipse -application org.eclipse.ant.core.antRunner \
+    -buildfile $buildfile \
+    -vmargs \
+    ${disableMirrors:+-Declipse.p2.mirrors=false}

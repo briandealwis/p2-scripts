@@ -1,0 +1,21 @@
+These are a set of scripts I hacked up to simplify dealing with
+p2 repositories.
+
+To install:
+
+  1. Copy the scripts somewhere handy.  I put mine in
+     /usr/local/installs/p2-scripts.  Add this location to your
+     PATH.
+
+  2. Set P2HOME to the location.
+
+  3. Set ECLIPSEHOME to the location of your Eclipse installation.
+
+The scripts implicitly specify "-append" as appropriate: if you
+want to overwrite a repository, then blow it away with "rm -rf"
+first.
+
+Caveats: p2-install-iu has far too many many options because
+p2.director has far too many options.
+
+Licensed under the Eclipse Public License (see epl-v10.html).

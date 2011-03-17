@@ -1,0 +1,88 @@
+#!/bin/sh
+#
+# Copyright 2011 Brian de Alwis
+# Licensed under the Eclipse Public License v1.0
+# http://www.eclipse.org/org/documents/epl-v10.php
+#
+P2HOME=${P2HOME:?P2HOME is not set}
+ECLIPSEHOME=${ECLIPSEHOME:?ECLIPSEHOME is not set}
+. $P2HOME/tools.sh || exit -1
+
+optional=false
+nongreedy=true
+followStrict=false
+followOnlyFiltered=false
+
+usage()
+{
+    eval 1>&2
+    echo "Invoke the p2.composite.repo ant task to create a composite repository"
+    echo "from a set of repos."
+    echo
+    echo "use: $progname [-v] dest-repo source-repos ..."
+    echo
+    echo "  -v  be more verbose"
+    echo
+    echo "  source-repo	the source p2 artifact and metadata repo"
+    echo "  dest-repo	the destination p2 artifact and metadata repo"
+    exit 1
+}
+
+while getopts v c; do
+    case $c in
+    v)  verbose=true;;
+    \?)	usage;;
+    esac
+done
+shift `expr $OPTIND - 1`
+
+if [ $# -lt 2 ]; then
+    usage
+fi
+
+destLoc=$(checkOrCreateLocalP2Repo "$1")
+shift 1
+
+buildfile=`mktemp -t p2.XXXXXXX`
+trap "rm -f $buildfile" 0 1 2 3 15
+
+cat >>$buildfile <<EOF
+<project default="comp">
+  <target name="comp">
+    <p2.composite.repository>
+      <repository location="$destLoc" append="true"/>
+      <add>
+EOF
+
+while [ $# -gt 0 -a "$1" != -- ]; do
+    repoLoc=`rewriteRepoLoc "$1"`
+    echo "        <repository location=\"$repoLoc\" />" >>$buildfile
+    shift
+done
+echo "      </add>" >>$buildfile
+
+if [ $# -gt 0 -a "$1" = -- ]; then
+    shift
+    echo "      <remove>" >>$buildfile
+    while [ $# -gt 0 -a "$1" != -- ]; do
+	repoLoc=$(rewriteRepoLoc "$1")
+	echo "        <repository location=\"$repoLoc\" />" >>$buildfile
+	shift
+    done
+    echo "      </remove>" >>$buildfile
+fi
+
+cat >>$buildfile <<EOF
+    </p2.composite.repository>
+  </target>
+</project>
+EOF
+
+if [ "$verbose" = true ]; then
+    cat $buildfile
+fi
+
+runEclipse -application org.eclipse.ant.core.antRunner \
+    -buildfile $buildfile \
+    -vmargs \
+    ${disableMirrors:+-Declipse.p2.mirrors=false}

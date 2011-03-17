@@ -1,0 +1,131 @@
+#!/bin/sh
+#
+# Copyright 2011 Brian de Alwis
+# Licensed under the Eclipse Public License v1.0
+# http://www.eclipse.org/org/documents/epl-v10.php
+#
+P2HOME=${P2HOME:?P2HOME is not set}
+ECLIPSEHOME=${ECLIPSEHOME:?ECLIPSEHOME is not set}
+. $P2HOME/tools.sh || exit -1
+
+removeFeature=false
+embedVersions=true
+featureVersion="0.0.0.`date -u +%Y%m%d%H%M%S`"
+
+usage()
+{
+    eval 1>&2
+    echo "Create a feature to gather the specified bundles."
+    echo
+    echo "use: $progname [-vr] [-V feature-version] [-n feature-name] repo \\"
+    echo "               feature-id [bundle-id ...]"
+    echo "  -V  specify feature version number (default: 0.0.0.utcdatetime)"
+    echo "  -r  replace existing feature"
+    echo "  -v  be verbose"
+    echo
+    echo "Bundles can be specified as:"
+    echo "  (1) a symbolicid/version or symbolicid_version"
+    echo "  (2) a path to a bundle (directory or jar)"
+    exit 1
+}
+
+while getopts vrV:n: c; do
+    case $c in
+    r)  removeFeature=true;;
+    V)  featureVersion=$OPTARG;;
+    n)	featureName=$OPTARG;;
+    v)	verbose=true;;
+    \?)	usage;;
+    esac
+done
+shift `expr $OPTIND - 1`
+
+if [ $# -lt 2 ]; then
+    usage
+fi
+
+destRepo=$(checkOrCreateLocalP2Repo "$1")
+featureId=$2
+shift 2
+
+# if no plugins specified, then use everything found
+if [ $# -eq 0 ]; then
+    set -- `echo "$destRepo"/plugins/*`
+fi
+
+tmp=$(mktemp -d -t p2.XXXXXX)
+trap "rm -rf $tmp" 0 1 2 3 15
+featuresLoc="$tmp"
+antXml="${tmp}/build.xml"
+mkdir -p "${featuresLoc}/features/$featureId" || exit 1
+featXml="${featuresLoc}/features/$featureId/feature.xml"
+
+cat <<EOF >>"$featXml"
+<?xml version="1.0" encoding="UTF-8"?>
+<feature
+  id="$featureId"
+  label="${featureName:-$featureId in $destRepo}"
+  version="$featureVersion">
+EOF
+
+for bundle in "$@"; do
+    if [ -f "$bundle" -o -d "$bundle" ]; then
+	bundleId=`osgiBundleName "$bundle"`
+	bundleVersion=`osgiBundleVersion "$bundle"`
+    else
+	b=`basename "$bundle" .jar`
+	case "$b" in
+	*/*) bundleId=$(echo "$b" | cut -f1 -d/);;
+	*_*) bundleId=$(echo "$b" | cut -f1 -d_);;
+	*) bundleId=$b;;
+	esac
+	bundleVersion=`echo "$b" | sed -n 's;.*[_/]\([0-9][0-9a-zA-Z\.]*\);\1;p'`
+    fi
+    if [ -z "$bundleId" ]; then
+	echo "ERROR: id for $bundle is empty"
+	exit 1
+    fi
+    if [ -n "$bundleVersion" -a $embedVersions = true ]; then
+        echo "<plugin id='$bundleId' download-size='0' install-size='0'" \
+	    "version='$bundleVersion' />" >>"$featXml"
+    else
+        echo "<plugin id='$bundleId' download-size='0' install-size='0'" \
+	    "version='0.0.0' />" >>"$featXml"
+    fi
+done
+echo "</feature>" >>"$featXml"
+
+cat <<EOF >$antXml
+<project default="build">
+  <target name="build">
+EOF
+
+if [ $removeFeature = true ]; then
+    echo "    <p2.remove.iu>" >>$antXml
+    echo "      <repository location='$destRepo' />" >>$antXml
+    echo "      <iu id='${featureId}.feature.group' />" >>$antXml
+    echo "      <iu id='${featureId}.feature.jar' />" >>$antXml
+    echo "    </p2.remove.iu>" >>$antXml
+fi
+cat <<EOF >>$antXml
+    <p2.publish.featuresAndBundles
+	repository="$destRepo"
+	append="true"
+	publishArtifacts="true">
+	  <features dir="$featuresLoc" />
+    </p2.publish.featuresAndBundles>
+  </target>
+</project>
+EOF
+
+if [ "$verbose" = true ]; then
+    echo "==> $featXml"
+    cat "$featXml"
+    echo "==> $antXml"
+    cat "$antXml"
+fi
+
+runEclipse \
+    -application org.eclipse.ant.core.antRunner \
+    -buildfile $antXml
+

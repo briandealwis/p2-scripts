@@ -1,0 +1,46 @@
+#!/bin/sh
+#
+# Copyright 2011 Brian de Alwis
+# Licensed under the Eclipse Public License v1.0
+# http://www.eclipse.org/org/documents/epl-v10.php
+#
+P2HOME=${P2HOME:?P2HOME is not set}
+ECLIPSEHOME=${ECLIPSEHOME:?ECLIPSEHOME is not set}
+. $P2HOME/tools.sh || exit -1
+
+usage()
+{
+    eval 1>&2
+    echo "Invoke the p2 Features and Bundles Publisher."
+    echo
+    echo "use: $progname [-v] repo-location source-location"
+    exit 1
+}
+
+while getopts v c; do
+    case $c in
+    v)  verbose="true";;
+    \?)	usage;;
+    esac
+done
+shift `expr $OPTIND - 1`
+
+if [ $# -ne 2 ]; then
+    usage
+fi
+
+destLoc=$(checkOrCreateLocalP2Repo "$1") || exit
+sourceLoc=$(absolute "$2")
+
+if [ ! -d "$sourceLoc" ]; then
+    error "$sourceLoc: does not exist"
+elif [ ! -d "$sourceLoc/features" -a ! -d "$sourceLoc/plugins" ]; then
+    error "$sourceLoc: contains neither features nor plugins"
+fi
+
+runEclipse -application org.eclipse.equinox.p2.publisher.FeaturesAndBundlesPublisher \
+    -metadataRepository "$destLoc" \
+    -artifactRepository "$destLoc" \
+    -source "$sourceLoc" \
+    -append -compress -publishArtifacts
+

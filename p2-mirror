@@ -22,7 +22,7 @@ usage()
     echo "         dest-repo source-repos ... [-- ius ...]"
     echo
     echo "  -v  be more verbose"
-    echo "  -c  apply a platform configuration filter"
+    echo "  -c  filter by platform for os-ws-arch "
     echo "  -g  be greedy"
     echo "  -F  follow only filtered requirements"
     echo "  -M  disable p2 mirror checking"

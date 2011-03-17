@@ -21,7 +21,7 @@ usage()
     echo "  -f  the flavour (default: tooling)"
     echo "  -x  the location of the executables (default: found from ECLIPSEHOME)"
     echo
-    echo "configs should be a sequence of ws.os.arch triples"
+    echo "configs should be a sequence of os-ws-arch triples"
     exit 1
 }
 
@@ -71,5 +71,5 @@ runEclipse -application org.eclipse.equinox.p2.publisher.ProductPublisher \
     -append -publishArtifacts \
     -executables "$execLoc" \
     -flavor "$flavour" \
-    -configs $(echo $* | sed 's/  */,/g')
+    -configs $(echo $* | sed -e 's/[-,]/./g' -e 's/  */,/g')
 

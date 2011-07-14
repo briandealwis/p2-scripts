@@ -18,10 +18,11 @@ usage()
     eval 1>&2
     echo "Invoke the p2 mirror ant task to mirror a set of repos."
     echo
-    echo "use: $progname [-vgFOSM] [-c os-ws-arch] \\"
+    echo "use: $progname [-vgFOSM] [-A artif-repo] [-c os-ws-arch] \\"
     echo "         dest-repo source-repos ... [-- ius ...]"
     echo
     echo "  -v  be more verbose"
+    echo "  -A  store artifacts in separate repository location"
     echo "  -c  filter by platform for os-ws-arch "
     echo "  -g  be greedy"
     echo "  -F  follow only filtered requirements"
@@ -31,6 +32,7 @@ usage()
     echo
     echo "  source-repo	the source p2 artifact and metadata repo"
     echo "  dest-repo	the destination p2 artifact and metadata repo"
+    echo "              if -A then only the metadata repo"
     echo "  ius		a list of the IUs to mirror."
     echo
     echo "Each IU should be of the form \"<id>['/'<version>]\"."
@@ -39,9 +41,10 @@ usage()
     exit 1
 }
 
-while getopts vc:gFOSM c; do
+while getopts vc:gFOSMA: c; do
     case $c in
     v)  verbose="true";;
+    A)  artifLoc=$OPTARG;;
     c)	platformFilter="$OPTARG";;
     g)	nongreedy=false;;
     F)	followOnlyFiltered=true;;
@@ -57,6 +60,9 @@ if [ $# -lt 2 ]; then
     usage
 fi
 
+if [ -n "$artifLoc" ]; then
+    artifLoc=$(checkOrCreateLocalP2Repo "$artifLoc")
+fi
 destLoc=$(checkOrCreateLocalP2Repo "$1")
 shift 1
 
@@ -67,10 +73,15 @@ cat >>$buildfile <<EOF
 <project default="mirror">
   <target name="mirror">
     <p2.mirror>
-      <repository location="$destLoc" append="true"/>
-      <source>
 EOF
+if [ -n "$artifLoc" ]; then
+    echo "      <repository location='$destLoc' kind='M' append='true'/>" >>$buildfile
+    echo "      <repository location='$artifLoc' kind='A' append='true'/>" >>$buildfile
+else
+    echo "      <repository location='$destLoc' append='true'/>" >>$buildfile
+fi
 
+echo "      <source>" >>$buildfile
 while [ $# -gt 0 -a "$1" != -- ]; do
     repoLoc=$(rewriteRepoLoc "$1")
     echo "        <repository location=\"$repoLoc\" />" >>$buildfile

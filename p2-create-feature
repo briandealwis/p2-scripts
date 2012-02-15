@@ -24,7 +24,7 @@ usage()
     echo "  -v  be verbose"
     echo
     echo "Bundles can be specified as:"
-    echo "  (1) a symbolicid/version or symbolicid_version"
+    echo "  (1) a symbolicid/version"
     echo "  (2) a path to a bundle (directory or jar)"
     exit 1
 }
@@ -44,7 +44,7 @@ if [ $# -lt 2 ]; then
     usage
 fi
 
-destRepo=$(checkOrCreateLocalP2Repo "$1")
+destRepo=$(checkOrCreateLocalP2Repo "$1") || exit 1
 featureId=$2
 shift 2
 
@@ -73,24 +73,21 @@ for bundle in "$@"; do
 	bundleId=`osgiBundleName "$bundle"`
 	bundleVersion=`osgiBundleVersion "$bundle"`
     else
-	b=`basename "$bundle" .jar`
-	case "$b" in
-	*/*) bundleId=$(echo "$b" | cut -f1 -d/);;
-	*_*) bundleId=$(echo "$b" | cut -f1 -d_);;
-	*) bundleId=$b;;
-	esac
-	bundleVersion=`echo "$b" | sed -n 's;.*[_/]\([0-9][0-9a-zA-Z\.]*\);\1;p'`
+	b=$(echo "$bundle" | sed 's/\.jar$//')
+        # removed support "_" as it doesn't work for org.eclipse.equinox.security.win32.x86_86_1.0.0.XXX
+        bundleId=$(echo "$b" | cut -f1 -d/)
+        bundleVersion=$(echo "$b" | cut -f2 -d/)
     fi
     if [ -z "$bundleId" ]; then
 	echo "ERROR: id for $bundle is empty"
 	exit 1
     fi
     if [ -n "$bundleVersion" -a $embedVersions = true ]; then
-        echo "<plugin id='$bundleId' download-size='0' install-size='0'" \
-	    "version='$bundleVersion' />" >>"$featXml"
+        echo "<plugin id='$bundleId' version='$bundleVersion' " \
+            "download-size='0' install-size='0' />" >>"$featXml"
     else
-        echo "<plugin id='$bundleId' download-size='0' install-size='0'" \
-	    "version='0.0.0' />" >>"$featXml"
+        echo "<plugin id='$bundleId' version='0.0.0' " \ 
+	    "download-size='0' install-size='0' />" >>"$featXml"
     fi
 done
 echo "</feature>" >>"$featXml"

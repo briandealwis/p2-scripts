@@ -25,7 +25,8 @@ usage()
     echo "  -C  set the configuration area to the specified directory (under dest)"
     echo "  -d  set the p2 data area to the specified directory (under dest)"
     echo
-    echo "  repo-loc	the location of th p2 artifact and metadata repo"
+    echo "  repo-loc	the location of the p2 artifact and metadata repo"
+    echo "		(specify multiple repos separated by commas)"
     echo "  dest	the installation destination"
     echo "  profile	the profile at the destination for recording"
     echo "  iu		a list of the IUs to install."
@@ -36,8 +37,9 @@ usage()
     exit 1
 }
 
-while getopts vrb:c:PVd: c; do
+while getopts A:vrb:c:PVd: c; do
     case $c in
+    A)  artifRepos=$(rewriteRepoLocs $OPTARG);;
     v)  verbose=true;;
     b)	bpool=$OPTARG;;
     c)  config=$OPTARG;;
@@ -54,8 +56,14 @@ if [ $# -lt 4 ]; then
     usage
 fi
 
-repoLoc=$(rewriteRepoLoc "$1")
-destination="$2"
+if [ -n "$artifRepos" ]; then
+    repositories="-artifactRepository $artifRepos -metadataRepository $(rewriteRepoLocs "$1")"
+else
+    repositories="-repository $(rewriteRepoLocs "$1")"
+fi
+# under MacOSX, an unqualified destination will end up being placed in the same
+# directory as the eclipse binary (e.g., ECLIPSEHOME/Eclipse.app/Contents/MacOS)
+destination=$(absolute "$2")
 profile="$3"
 p2ProfileReg="p2/org.eclipse.equinox.p2.engine/profileRegistry"
 profileDir="${destination}/${p2DataArea}/${p2ProfileReg}/${profile}.profile"
@@ -84,7 +92,7 @@ fi
 
 specifiedIUs=$(echo $* | sed 's/[[:space:]][[:space:]]*/,/g')
 runEclipse -application org.eclipse.equinox.p2.director \
-    -repository "$repoLoc" \
+    ${repositories} \
     ${profileProps:+-profileProperties "$profileProps"} \
     ${roaming} \
     ${verifyOnly} \

@@ -21,21 +21,8 @@ isLocalP2Repo() {
     elif [ ! -f "$1/artifacts.xml" -a ! -f "$1/artifacts.jar" \
 	    -a ! -f "$1/compositeArtifacts.jar" \
 	    -a ! -f "$1/content.xml" -a ! -f "$1/content.jar" \
-	    -a ! -f "$1/compositeContent.jar" ]; then
-	return 1
-    fi
-    return 0
-}
-
-# Check if $1, a local directory, is not a p2 repository
-# Return 0 if not a local repo
-isNotLocalP2Repo() {
-    if [ ! -d "$1" ]; then
-	return 0
-    elif [ -f "$1/artifacts.xml" -o -f "$1/artifacts.jar" \
-		-o -f "$1/compositeArtifacts.jar" ] && \
-	    [ -f "$1/content.xml" -o -f "$1/content.jar" \
-		-o -f "$1/compositeContent.jar" ]; then
+	    -a ! -f "$1/compositeContent.jar" \
+	    -a `ls -1 "$1" | wc -l` -gt 0 ]; then
 	return 1
     fi
     return 0
@@ -67,6 +54,28 @@ rewriteRepoLoc() {
     esac
 }
 
+# Vet and rewrite a set of comma-separated repository locations.
+# P2 expects local repositories to be absolute path names
+# Ensures that local repositories exist.
+#
+# $1 = repository specification
+#      can be a URL (e.g., file:/usr/local) or a path
+# returns the rewritten repository location
+rewriteRepoLocs() {
+    local OIFS=$IFS result
+    IFS=,
+    for repo in $*; do
+	local rewrite=$(rewriteRepoLoc "$repo") || return 1
+	if [ -z "$result" ]; then
+	    result=$rewrite
+	else
+	    result="$result,$rewrite"
+	fi
+    done
+    IFS=$OIFS
+    echo $result
+}
+
 # Check that a local repo exists at the provided location,
 # or create the directory
 # $1 the location
@@ -92,7 +101,7 @@ checkOrCreateLocalP2Repo() {
 extractBundleSymbolicName() {
     # be ignore any trailing directives (e.g., singleton)
     sed -n \
-      -e 's/^Bundle-SymbolicName:[ 	]*\([-a-zA-Z.0-9]*\).*/\1/p' "$@"
+      -e 's/^Bundle-SymbolicName:[ 	]*\([-a-zA-Z._0-9]*\).*/\1/p' "$@"
 }
 
 extractBundleVersion() {

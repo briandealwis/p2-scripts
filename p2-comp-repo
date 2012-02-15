@@ -40,7 +40,7 @@ if [ $# -lt 2 ]; then
     usage
 fi
 
-destLoc=$(checkOrCreateLocalP2Repo "$1")
+destLoc=$(checkOrCreateLocalP2Repo "$1") || exit 1
 shift 1
 
 buildfile=`mktemp -t p2.XXXXXXX`

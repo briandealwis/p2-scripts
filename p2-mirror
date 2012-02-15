@@ -61,9 +61,9 @@ if [ $# -lt 2 ]; then
 fi
 
 if [ -n "$artifLoc" ]; then
-    artifLoc=$(checkOrCreateLocalP2Repo "$artifLoc")
+    artifLoc=$(checkOrCreateLocalP2Repo "$artifLoc") || exit 1
 fi
-destLoc=$(checkOrCreateLocalP2Repo "$1")
+destLoc=$(checkOrCreateLocalP2Repo "$1") || exit 1
 shift 1
 
 buildfile=`mktemp -t p2.XXXXXXX`

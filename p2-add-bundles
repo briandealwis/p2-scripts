@@ -30,7 +30,7 @@ if [ $# -lt 2 ]; then
     usage
 fi
 
-destRepo=$(checkOrCreateLocalP2Repo "$1")
+destRepo=$(checkOrCreateLocalP2Repo "$1") || exit 1
 shift 1
 
 tmp=$(mktemp -d -t p2.XXXXXX)

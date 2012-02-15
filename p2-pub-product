@@ -39,7 +39,7 @@ if [ $# -lt 3 ]; then
     usage
 fi
 
-destLoc=$(checkOrCreateLocalP2Repo "$1")
+destLoc=$(checkOrCreateLocalP2Repo "$1") || exit 1
 productFile=$(absolute "$2")
 shift 2
 

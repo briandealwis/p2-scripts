@@ -29,7 +29,7 @@ if [ $# -ne 2 ]; then
     usage
 fi
 
-destLoc=$(checkOrCreateLocalP2Repo "$1") || exit
+destLoc=$(checkOrCreateLocalP2Repo "$1") || exit 1
 sourceLoc=$(absolute "$2")
 
 if [ ! -d "$sourceLoc" ]; then

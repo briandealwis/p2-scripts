@@ -30,9 +30,11 @@ usage()
     echo "  -O  include optional components"
     echo "  -S  be strict when following requirements"
     echo
-    echo "  source-repo	the source p2 artifact and metadata repo"
     echo "  dest-repo	the destination p2 artifact and metadata repo"
     echo "              if -A then only the metadata repo"
+    echo "  source-repo	the source p2 artifact and metadata repo"
+    echo "		prefix with M: to force meta-data repo"
+    echo "		prefix with A: to force artifact repo"
     echo "  ius		a list of the IUs to mirror."
     echo
     echo "Each IU should be of the form \"<id>['/'<version>]\"."
@@ -83,8 +85,21 @@ fi
 
 echo "      <source>" >>$buildfile
 while [ $# -gt 0 -a "$1" != -- ]; do
-    repoLoc=$(rewriteRepoLoc "$1")
-    echo "        <repository location=\"$repoLoc\" />" >>$buildfile
+
+    case "$1" in
+    M:*)
+	repoLoc=$(rewriteRepoLoc $(echo "$1" | cut -f2- -d:))
+	echo "        <repository kind='M' location=\"$repoLoc\" />" >>$buildfile
+	;;
+    A:*)
+	repoLoc=$(rewriteRepoLoc $(echo "$1" | cut -f2- -d:))
+	echo "        <repository kind='A' location=\"$repoLoc\" />" >>$buildfile
+	;;
+    *) 
+	repoLoc=$(rewriteRepoLoc "$1")
+	echo "        <repository location=\"$repoLoc\" />" >>$buildfile
+	;;
+    esac
     shift
 done
 echo "      </source>" >>$buildfile

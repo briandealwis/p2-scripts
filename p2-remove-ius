@@ -65,10 +65,6 @@ for iu in "$@"; do
 	echo "         version=\"$(osgi-bundle-version "$iu")\" />" >>$buildfile
     else
 	case "$iu" in
-	*_[0-9]*)
-	  echo "      <iu id=\"$(echo $iu | cut -f1 -d_)\"" >>$buildfile
-	  echo "         version=\"$(echo $iu | cut -f2 -d_)\" />" >>$buildfile
-	  ;;
 	*/[0-9]*)
 	  echo "      <iu id=\"$(echo $iu | cut -f1 -d/)\"" >>$buildfile
 	  echo "         version=\"$(echo $iu | cut -f2 -d/)\" />" >>$buildfile

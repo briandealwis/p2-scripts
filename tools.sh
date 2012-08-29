@@ -146,13 +146,19 @@ osgiBundleVersion() {
     fi
 }
 
+# Run an eclipse instance; note that an empty workspace is provided to the
+# instance, which is removed immediately after execution.  No return value.
 runEclipse() {
     local eclVerbose=""
+    # unfortunately can't run with -data @none due too much barfage
+    #ws=@none
+    ws=$(mktemp -d -t ws.XXXX)
     if [ "$verbose" = true ]; then
 	eclVerbose="-debug /dev/null"
-	echo "$ECLIPSEHOME/eclipse $eclVerbose -consolelog -nosplash $*"
+	echo "$ECLIPSEHOME/eclipse $eclVerbose -consolelog -nosplash -data $ws $*"
     fi
-    $ECLIPSEHOME/eclipse $eclVerbose -consolelog -nosplash "$@"
+    $ECLIPSEHOME/eclipse $eclVerbose -consolelog -nosplash -data "$ws" "$@"
+    rm -rf "$ws"
 }
 
 # helper function

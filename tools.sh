@@ -108,6 +108,24 @@ extractBundleVersion() {
     sed -n 's/^Bundle-Version:[ 	]*//p' "$@"
 }
 
+# check that the identifier $1 is a valid OSGI symbolic name
+# $2 is an optional helper context string
+validateBundleSymbolicName() {
+    # according to the New Plug-In wizard: [-a-zA-Z0-9._]
+    if [ -n "$1" -a $(expr "$1" : '^[-a-zA-Z._0-9]*$') -eq 0 ]; then
+	error "${2:+$2: }invalid bundle symbolic name: $1"
+    fi
+}
+
+# check that the identifier $1 is a valid Eclipse feature id
+# $2 is an optional helper context string
+validateFeatureIdentifier() {
+    # according to the New Feature wizard: [a-zA-Z0-9._]
+    if [ -n "$1" -a $(expr "$1" : '^[a-zA-Z._0-9]*$') -eq 0 ]; then
+	error "${2:+$2: }invalid feature id: $1"
+    fi
+}
+
 # Reflow the lines of a MANIFEST.MF as provided on stdin
 # FIXME: I'm sure this could be done in a single line in Perl
 rejoin() {

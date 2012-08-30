@@ -48,6 +48,8 @@ destRepo=$(checkOrCreateLocalP2Repo "$1") || exit 1
 featureId=$2
 shift 2
 
+validateFeatureIdentifier "$featureId"
+
 # if no plugins specified, then use everything found
 if [ $# -eq 0 ]; then
     set -- `echo "$destRepo"/plugins/*`
@@ -78,10 +80,7 @@ for bundle in "$@"; do
         bundleId=$(echo "$b" | cut -f1 -d/)
         bundleVersion=$(echo "$b" | cut -f2 -d/)
     fi
-    if [ -z "$bundleId" ]; then
-	echo "ERROR: id for $bundle is empty"
-	exit 1
-    fi
+    validateBundleSymbolicName "$bundleId" "$bundle"
     if [ -n "$bundleVersion" -a $embedVersions = true ]; then
         echo "<plugin id='$bundleId' version='$bundleVersion' " \
             "download-size='0' install-size='0' />" >>"$featXml"

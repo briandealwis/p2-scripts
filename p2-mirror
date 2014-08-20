@@ -107,11 +107,8 @@ echo "      </source>" >>$buildfile
 if [ $# -gt 0 -a "$1" = -- ]; then
     shift
     while [ $# -gt 0 -a "$1" != -- ]; do
+	# removed support for "_" as interferes with any bundles embedding x86_64 in bundle id
 	case "$1" in
-	*_[0-9]*)
-	  echo "      <iu id=\"$(echo $1 | cut -f1 -d_)\"" >>$buildfile
-	  echo "         version=\"$(echo $1 | cut -f2 -d_)\" />" >>$buildfile
-	  ;;
 	*/[0-9]*)
 	  echo "      <iu id=\"$(echo $1 | cut -f1 -d/)\"" >>$buildfile
 	  echo "         version=\"$(echo $1 | cut -f2 -d/)\" />" >>$buildfile

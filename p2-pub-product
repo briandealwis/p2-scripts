@@ -21,7 +21,7 @@ usage()
     echo "  -f  the flavour (default: tooling)"
     echo "  -x  the location of the executables (default: found from ECLIPSEHOME)"
     echo
-    echo "configs should be a sequence of os-ws-arch triples"
+    echo "configs should be a sequence of ws-os-arch triples"
     exit 1
 }
 

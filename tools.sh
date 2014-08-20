@@ -20,8 +20,10 @@ isLocalP2Repo() {
 	return 1
     elif [ ! -f "$1/artifacts.xml" -a ! -f "$1/artifacts.jar" \
 	    -a ! -f "$1/compositeArtifacts.jar" \
+	    -a ! -f "$1/compositeArtifacts.xml" \
 	    -a ! -f "$1/content.xml" -a ! -f "$1/content.jar" \
 	    -a ! -f "$1/compositeContent.jar" \
+	    -a ! -f "$1/compositeContent.xml" \
 	    -a `ls -1 "$1" | wc -l` -gt 0 ]; then
 	return 1
     fi
@@ -74,6 +76,23 @@ rewriteRepoLocs() {
     done
     IFS=$OIFS
     echo $result
+}
+
+# Check that a local repo exists at the provided location,
+# $1 the location
+checkLocalP2Repo() {
+    case "$1" in
+      http://*|https://*|ftp://*|sftp://*)
+	error "$1: not a local repository"
+        ;;
+      file:*)
+	path=$(echo "$1" | cut -d: -f2-)
+	;;
+      *)
+	path=$1;;
+    esac
+    isLocalP2Repo "$path" || error "$1: not a repository"
+    echo "file:$(absolute "$path")"
 }
 
 # Check that a local repo exists at the provided location,
@@ -173,9 +192,9 @@ runEclipse() {
     ws=$(mktemp -d -t ws.XXXX)
     if [ "$verbose" = true ]; then
 	eclVerbose="-debug /dev/null"
-	echo "$ECLIPSEHOME/eclipse $eclVerbose -consolelog -nosplash -data $ws $*"
+	echo "$ECLIPSEHOME/eclipse $eclVerbose -consolelog -nosplash -data $ws $* ${ECLIPSEVMARGS}"
     fi
-    $ECLIPSEHOME/eclipse $eclVerbose -consolelog -nosplash -data "$ws" "$@"
+    $ECLIPSEHOME/eclipse $eclVerbose -consolelog -nosplash -data "$ws" "$@" ${ECLIPSEVMARGS}
     rm -rf "$ws"
 }
 
